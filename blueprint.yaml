@@ -470,6 +470,10 @@ node_templates:
         target: New_PeerHost_9
       - type: cloudify.relationships.connected_to
         target: New_PeerHost_10
+      - type: cloudify.relationships.connected_to
+        target: New_PeerHost_11
+      - type: cloudify.relationships.connected_to
+        target: New_PeerHost_12
     instances:
       deploy: 1
     properties:
@@ -539,10 +543,6 @@ node_templates:
     relationships:
       - type: cloudify.relationships.contained_in
         target: New_DRA_6
-      - type: cloudify.relationships.connected_to
-        target: New_PeerHost_11
-      - type: cloudify.relationships.connected_to
-        target: New_PeerHost_12
     properties:
       server:
         default: true
