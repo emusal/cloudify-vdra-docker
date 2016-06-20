@@ -1,0 +1,535 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+data_types:
+
+  cloudify.uangel.datatypes.ConnectionPoint:
+    description: Connection point
+    properties:
+      type:
+        description: tcp|sctp
+        type: string
+        default: tcp
+      port:
+        description: port number
+        type: integer
+      address:
+        description: IP address
+        type: string
+
+#  cloudify.uangel.datatypes.ConnectionPointList:
+#    description: Connection point list
+#    properties:
+#      connection_points:
+#        type: list
+#        entry_schema:
+#          description: connection point entry
+#          type: cloudify.uangel.datatypes.ConnectionPoint
+
+  cloudify.uangel.datatypes.diameter.Transport:
+    derived_from: cloudify.uangel.datatypes.ConnectionPoint
+    description: Diameter transport
+    properties:
+      way:
+        description: client|server|both
+        default: both
+      bind:
+        description: local binding information
+# @TODO cloudify dsl 1.2 not yet support array type
+#        type: cloudify.uangel.datatypes.ConnectionPoint
+
+#  cloudify.uangel.datatypes.diameter.TransportList:
+#    description: Diameter transport list
+#    properties:
+#      transports:
+#        type: list
+#        entry_schema:
+#          description: transport entry
+#          type: cloudify.uangel.datatypes.diameter.Transport
+
+  cloudify.uangel.datatypes.diameter.VendorSpecficApplicationId:
+    derived_from: cloudify.uangel.datatypes.ConnectionPoint
+    description: Diameter transport
+    properties:
+      vendor_id:
+        description: vendor id
+        default: integer
+        required: false
+      auth_application_id:
+        description: authenticated application id
+        type: integer
+        required: false
+
+  cloudify.uangel.datatypes.diameter.Capability:
+    description: Diameter capability
+    properties:
+      product_name:
+        description: product name
+        type: string
+        required: false
+      vendor_id:
+        description: vendor identifier
+        type: integer
+        required: false
+      supported_vendor_id:
+        description: supported vendor identifier
+        required: false
+      auth_application_id:
+        description: authenticated application identifier
+        required: false
+      acct_application_id:
+        description: accounted application identifier
+        required: false
+      vendor_specific_application_id:
+        description: vendor specific application identifier
+# @TODO cloudify dsl 1.2 not yet support array type
+#        type: cloudify.uangel.datatypes.diameter.VendorSpecficApplicationId
+        required: false
+      inband_security_id:
+        description: inband security id
+        type: integer
+        required: false
+      host_ip_address:
+        description: host ip address
+        type: string
+        required: false
+
+  cloudify.uangel.datatypes.diameter.Option:
+    description: Diameter option
+    properties:
+      use_ipv6:
+        description: use ipv6
+        type: boolean
+        default: false
+        required: false
+      use_duplicate_detect:
+        description: use duplicate detect
+        type: boolean
+        default: true
+        required: false
+      check_cer_ip:
+        description: check cer ip
+        type: boolean
+        default: false
+        required: false
+      check_tport_ip:
+        description: check transport ip
+        type: boolean
+        default: false
+        required: false
+      check_dest_host:
+        description: check destination host
+        type: boolean
+        default: false
+        required: false
+      ignore_retrans:
+        description: ignore retransmission
+        type: boolean
+        default: false
+        required: false
+      ignore_incoming_policy:
+        description: ignore incoming policy
+        type: boolean
+        default: true
+        required: false
+      use_new_hop_id_in_oreq:
+        description: use new hop-id in oreq
+        type: boolean
+        default: false
+        required: false
+      stop_peer_when_dpr_reboot:
+        description: stop peer when dpr reboot
+        type: boolean
+        default: false
+        required: false
+      stop_peer_when_dpr_busy:
+        description: stop peer when dpr busy
+        type: boolean
+        default: false
+        required: false
+      immediate_reply_when_fail:
+        description: stop peer when dpr busy
+        type: boolean
+        default: true
+        required: false
+      reconnect_max:
+        description: maximum number of reconnect 
+        type: integer
+        default: 0
+        required: false
+      send_timeout:
+        description: send timeout (msec)
+        type: integer
+        default: 1000
+        required: false
+      recv_msg_check_size:
+        description: receiving message check size
+        type: integer
+        default: 0
+        required: false
+
+  cloudify.uangel.datatypes.diameter.Parser:
+    description: Diameter paser
+    properties:
+      version:
+        description: parser version
+        type: integer
+        default: 1
+        required: false
+      no_check_header_flag:
+        description: no check header flag
+        type: boolean
+        default: false
+        required: false
+      check_unknown_cmd:
+        description: check unknown command
+        type: boolean
+        default: false
+        required: false
+      check_unknown_avp:
+        description: check unknown avp
+        type: boolean
+        default: false
+        required: false
+      check_mandatory_avp_length:
+        description: check mandatory avp length
+        type: boolean
+        default: false
+        required: false
+      check_empty_group:
+        description: check empty group
+        type: boolean
+        default: false
+        required: false
+      check_avprule:
+        description: check avp rule
+        type: boolean
+        default: false
+      check_required_length:
+        description: check required length
+        type: boolean
+        default: false
+
+  cloudify.uangel.datatypes.diameter.General:
+    description: Diameter general information
+    properties:
+      thread_count:
+        description: thread count
+        type: integer
+        required: false
+      max_server:
+        description: maximum number of servers
+        type: integer
+        required: false
+      max_peer:
+        description: maximum number of peers
+        type: integer
+        required: false
+      max_route:
+        description: maximum number of routes
+        type: integer
+        required: false
+      option:
+        description: diameter options
+        type: cloudify.uangel.datatypes.diameter.Option
+        required: false
+      parser:
+        description: diameter parser information
+        type: cloudify.uangel.datatypes.diameter.Parser
+        required: false
+
+  cloudify.uangel.datatypes.diameter.Timer:
+    description: Diameter general information
+    properties:
+      tw_timer:
+        description: Tw timer
+        type: integer
+      tc_timer:
+        description: Tc timer
+        type: integer
+      tq_timer:
+        description: Tq timer
+        type: integer
+      te_timer:
+        description: Te timer
+        type: integer
+
+  cloudify.uangel.datatypes.diameter.Peer:
+    description: General diameter peer information
+    properties:
+      id:
+        description: peer id
+        type: integer
+      hostname:
+        description: hostname
+        type: string
+      capability:
+        description: diameter capability of server 
+        type: cloudify.uangel.datatypes.diameter.Capability
+        required: false
+      transport:
+        description: transports of server 
+# @TODO cloudify dsl 1.2 not yet support array type
+#        type: cloudify.uangel.datatypes.diameter.Transport
+
+  cloudify.uangel.datatypes.diameter.Server:
+    description: Diameter general information
+    properties:
+      id:
+        description: server id
+        type: integer
+      hostname:
+        description: hostname
+        type: string
+      realm:
+        description: realm
+        type: string
+      default:
+        description: is default server
+        type: boolean
+        default: true
+        required: false
+      capability:
+        description: diameter capability of server 
+        type: cloudify.uangel.datatypes.diameter.Capability
+        required: false
+      option:
+        description: diameter options of server
+        type: cloudify.uangel.datatypes.diameter.Option
+        required: false
+      parser:
+        description: diameter parser of server 
+        type: cloudify.uangel.datatypes.diameter.Parser
+        required: false
+      timer:
+        description: diameter timers of server 
+        type: cloudify.uangel.datatypes.diameter.Timer
+        required: false
+      transport:
+        description: local transport to listen
+# @TODO cloudify dsl 1.2 not yet support array type
+#        type: cloudify.uangel.datatypes.ConnectionPoint
+        required: false
+
+node_types:
+  cloudify.uangel.nodes.VNFC:
+    derived_from: cloudify.nodes.Compute
+    properties:
+      os_family:
+        default: linux
+      hostname:
+        description: hostname
+        type: string
+  cloudify.uangel.nodes.EMS:
+    derived_from: cloudify.nodes.Compute
+    properties:
+      os_family:
+        default: linux
+  cloudify.uangel.nodes.LoadBalancer:
+    derived_from: cloudify.nodes.ApplicationServer
+    properties: 
+      id:
+        description: server id
+        type: integer
+        default: 0
+      scheme:
+        description: loadbalancing scheme (round-robin|source)
+        type: string
+        default: source
+    interfaces: {}
+  cloudify.uangel.nodes.DRAInstance:
+    derived_from: cloudify.nodes.ApplicationModule
+    properties: 
+      server: 
+        description: describe dictionaries
+        type: cloudify.uangel.datatypes.diameter.Server
+        default:
+          id: 0
+          hostname: dra.uangel.com
+          realm: uangel.com
+          option:
+            use_ipv6: false
+            use_duplicate_detect: true
+            check_cer_ip: false
+            check_tport_ip: false
+            check_dest_host: false
+            ignore_retrans: false
+            ignore_incoming_policy: true
+            use_new_hop_id_in_oreq: false
+            stop_peer_when_dpr_reboot: false
+            stop_peer_when_dpr_busy: false
+            immediate_reply_when_fail: true
+            reconnect_max: 0
+            send_timeout: 1000
+            recv_msg_check_size: 0
+          parser:
+            version: 1
+            no_check_header_flag: true
+            check_unknown_cmd: false
+            check_unknown_avp: false
+            check_mandatory_avp_length: false
+            check_empty_group: false
+            check_avprule: false
+            check_required_length: false
+          timer:
+            tw_timer: 10000
+            tc_timer: 5000
+            tq_timer: 4000
+            te_timer: 15000
+          capability:
+            product_name: UANGEL DIAMETER
+            vendor_id: 11857
+            supported_vendor_id:
+              - 0
+              - 10415
+              - 14389
+              - 15930
+            auth_application_id:
+              - 4294967295
+              - 4
+              - 16777251
+            acct_application_id:
+              - 4294967295
+              - 3
+            vendor_specific_application_id:
+              - vendor_id: 14389
+                auth_application_id: 1673
+              - vendor_id: 10415
+                auth_application_id: 1677738
+            inband_security_id: 1
+            host_ip_address:
+              - 192.168.1.182
+          transport:
+            - type: tcp
+              port: 3868
+              address: 0
+    interfaces: {}
+  cloudify.uangel.nodes.DRA:
+    derived_from: cloudify.nodes.ApplicationServer
+    properties: 
+      general: 
+        description: describe general information used by DRA daemon
+        type: cloudify.uangel.datatypes.diameter.General
+        default:
+          thread_count: 10
+          max_server: 64
+          max_peer: 1024
+          option:
+            use_ipv6: true
+          parser:
+            version: 1
+      dictionary: 
+        description: describe dictionaries
+        default:
+          file:
+            - $UASYS_HOME/data/dict-3.0/dict_common.xml
+            - $UASYS_HOME/data/dict-3.0/dict_ietf_avps.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_avps.xml
+            - $UASYS_HOME/data/dict-3.0/dict_etsi_avps.xml
+            - $UASYS_HOME/data/dict-3.0/dict_telkomsel.xml
+            - $UASYS_HOME/data/dict-3.0/dict_ietf_base_RFC6733.xml
+            - $UASYS_HOME/data/dict-3.0/dict_ietf_base_acr_RFC6733.xml
+            - $UASYS_HOME/data/dict-3.0/dict_ietf_nas_RFC4005.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_Ro_TS32299.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_Sh_TS29329.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_Sy_TS29219.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_CxDx_TS29229.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_S9_TS29215.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_S6a_S6d_TS29272.xml
+            - $UASYS_HOME/data/dict-3.0/dict_tksel_customized.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_S6b_TS29273.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_Gx_TS29212.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_Gxx_TS29212.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_Sd_TS29212.xml
+            - $UASYS_HOME/data/dict-3.0/dict_3gpp_Rx_TS29214.xml
+    interfaces: {}
+  cloudify.uangel.nodes.OAMServer:
+    derived_from: cloudify.nodes.ApplicationServer
+    properties: {}
+    interfaces: {}
+  cloudify.uangel.nodes.EntityManager:
+    derived_from: cloudify.nodes.ApplicationServer
+    properties: {}
+    interfaces: {}
+  cloudify.uangel.nodes.VNFManager:
+    derived_from: cloudify.nodes.ApplicationServer
+    properties: {}
+    interfaces: {}
+  cloudify.uangel.nodes.PeerHost:
+    derived_from: cloudify.nodes.Root
+    properties:
+      disable: 
+        type: boolean
+        default: false
+      peer:
+        description: peer information
+        type: cloudify.uangel.datatypes.diameter.Peer
+        default:
+          id: 1
+          hostname: "dea.uangel.com"
+          transport: 
+            type: tcp
+            port: 3868
+            address: "192.168.1.20"
+            way: "both"
+            bind: 
+              port: 3868
+              address: "192.168.1.10"
+  cloudify.uangel.nodes.Network:
+    derived_from: cloudify.nodes.Network
+    properties: 
+      name:
+        description: network name
+        type: string
+        required: false
+    interfaces: {}
+  cloudify.uangel.nodes.Subnet:
+    derived_from: cloudify.nodes.Subnet
+    properties: 
+      network:
+        description: network (CIDR)
+        type: string
+      gateway:
+        description: gateway address
+        type: string
+    interfaces: {}
+  cloudify.uangel.nodes.Cluster:
+    derived_from: cloudify.nodes.Subnet
+    properties: 
+      virtual_port:
+        description: name of virtual port
+        type: string
+    interfaces: {}
+  cloudify.uangel.nodes.Port:
+    derived_from: cloudify.nodes.Port
+    properties: 
+      name:
+        description: interface name (ethx)
+        type: string
+        default: eth1
+        required: false
+      link_type:
+        description: link type (ethernet|loopback)
+        type: string
+        default: ethernet
+        required: false
+      address:
+        description: ip address
+        type: string
+        required: false
+    interfaces: {}
+
+
+relationships:
+  cloudify.uangel.relationships.connected_to:
+    derived_from: cloudify.relationships.connected_to
+    properties: 
+      connection_point:
+        type: cloudify.uangel.datatypes.ConnectionPoint
+        default:
+          type: "tcp"
+          port: 3868
+          address: "192.168.1.20"
+    source_interfaces:
+#    cloudify.interfaces.relationship_lifecycle:
+#      establish: ""
+#      unlink: ""

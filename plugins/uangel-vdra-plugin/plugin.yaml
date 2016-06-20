@@ -1,0 +1,92 @@
+##################################################################################
+# Cloudify Docker built in types and plugins definitions.
+##################################################################################
+
+plugins:
+  uangel_vdra:
+    executor: host_agent
+#    source: https://github.com/emusal/cloudify-uangel-vdra-plugin/archive/master.zip
+    source: uangel-vdra-plugin
+    package_name: cloudify-uangel-vdra-plugin
+    package_version: '1.0'
+
+node_types:
+
+  cloudify.uangel.docker.Container:
+    derived_from: cloudify.nodes.Root
+    properties:
+      image:
+        description: >
+          A dict describing a docker image. To import an image from a tarball
+          use the src key. The value will be an absolute path or URL. If pulling
+          an image from docker hub, do not use src. The key is repository. The value is that
+          repository name. You may additionally specify the tag, if none is given,
+          latest is assumed.
+        default: {}
+      name:
+        description: >
+          The name of the Docker container. This will also be the host name in Docker
+          host config.
+        type: string
+        default: ''
+      use_external_resource:
+        description: Whether the container already exists or not.
+        type: boolean
+        default: false
+      connect_container_to_network:
+        description: >
+          blah blah ...
+        default: {}
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: uangel_vdra.docker_plugin.tasks.create_container
+          inputs:
+            params:
+              description: >
+                A dictionary of parameters allowed by docker-py to the
+                create_container function.
+              default: {}
+        start:
+          implementation: uangel_vdra.docker_plugin.tasks.start
+          inputs:
+            params:
+              description: >
+                A dictionary of parameters allowed by docker-py to the
+                start function.
+              default: {}
+            processes_to_wait_for:
+              description: >
+                This is a list of processes to verify are active on the container
+                before completing the start operation. If all processes are not active
+                the function will be retried.
+              default: []
+            retry_interval:
+              description: >
+                Before finishing start checks to see that all processes
+                on the container are ready. This is the interval between
+                checks.
+              type: integer
+              default: 1
+        stop:
+          implementation: uangel_vdra.docker_plugin.tasks.stop
+          inputs:
+            params:
+              description: >
+                A dictionary of parameters allowed by docker-py to the
+                stop function.
+              default: {}
+            retry_interval:
+              description: >
+                If Exited is not in the container status, then the plugin will retry. This is
+                the number of seconds between retries.
+              type: integer
+              default: 10
+        delete:
+          implementation: uangel_vdra.docker_plugin.tasks.remove_container
+          inputs:
+            params:
+              description: >
+                A dictionary of parameters allowed by docker-py to the
+                remove_container function.
+              default: {}

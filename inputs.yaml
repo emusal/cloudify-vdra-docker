@@ -1,0 +1,4 @@
+install_agent: true
+host_ip: '10.10.1.100'
+agent_user: 'vagrant'
+agent_private_key_path: '/home/cloudify/.ssh/id_rsa'

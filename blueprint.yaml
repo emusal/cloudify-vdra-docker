@@ -1,0 +1,725 @@
+tosca_definitions_version: cloudify_dsl_1_2
+imports:
+  - http://www.getcloudify.org/spec/cloudify/3.3rc1/types.yaml
+  - http://www.getcloudify.org/spec/diamond-plugin/1.3rc1/plugin.yaml
+  - types/types.yaml
+  - plugins/uangel-vdra-plugin/plugin.yaml
+
+inputs:
+
+  host_ip:
+      description: >
+        The ip of the host the application will be deployed on
+      default: 127.0.0.1
+
+  agent_user:
+      description: >
+        User name used when SSH-ing into the started machine
+      default: ubuntu
+
+  agent_private_key_path:
+      description: >
+        Path to a private key that resided on the management machine.
+        SSH-ing into agent machines will be done with this key.
+      default: ~/.ssh/agent_key.pem
+
+  install_agent:
+      description: >
+        When running in local mode set this to false
+      default: false
+
+node_types: {}
+node_templates:
+  VNFC_Zookeeper_1:
+    type: cloudify.uangel.nodes.VNFC
+    properties:
+      ip: { get_input : host_ip }
+      hostname: vdra1
+      install_agent: { get_input : install_agent }
+      cloudify_agent:
+        user: { get_input: agent_user }
+        key: { get_input: agent_private_key_path }
+  VNFC_EM_1:
+    type: cloudify.uangel.nodes.VNFC
+    properties:
+      ip: { get_input : host_ip }
+      hostname: vdra1
+      install_agent: { get_input : install_agent }
+      cloudify_agent:
+        user: { get_input: agent_user }
+        key: { get_input: agent_private_key_path }
+  VNFC_vDRA_1:
+    type: cloudify.uangel.nodes.VNFC
+    properties:
+      ip: { get_input : host_ip }
+      hostname: udra1
+      install_agent: { get_input : install_agent }
+      cloudify_agent:
+        user: { get_input: agent_user }
+        key: { get_input: agent_private_key_path }
+    relationships:
+      - type: cloudify.relationships.connected_to
+        target: New_Port_15
+      - type: cloudify.relationships.connected_to
+        target: New_Port_18
+  VNFC_vDRA_2:
+    type: cloudify.uangel.nodes.VNFC
+    properties:
+      ip: { get_input : host_ip }
+      hostname: udra2
+      install_agent: { get_input : install_agent }
+      cloudify_agent:
+        user: { get_input: agent_user }
+        key: { get_input: agent_private_key_path }
+    relationships:
+      - type: cloudify.relationships.connected_to
+        target: New_Port_16
+      - type: cloudify.relationships.connected_to
+        target: New_Port_18
+  VNFC_LoadBalancer_1:
+    type: cloudify.uangel.nodes.VNFC
+    properties:
+      ip: { get_input : host_ip }
+      hostname: ulb1
+      install_agent: { get_input : install_agent }
+      cloudify_agent:
+        user: { get_input: agent_user }
+        key: { get_input: agent_private_key_path }
+    relationships:
+      - type: cloudify.relationships.connected_to
+        target: New_Port_17
+      - type: cloudify.relationships.connected_to
+        target: New_Cluster_14
+  VNFC_Sim_1:
+    type: cloudify.uangel.nodes.VNFC
+    properties:
+      ip: { get_input : host_ip }
+      hostname: vdra1
+      install_agent: { get_input : install_agent }
+      cloudify_agent:
+        user: { get_input: agent_user }
+        key: { get_input: agent_private_key_path }
+  VNFC_Sim_2:
+    type: cloudify.uangel.nodes.VNFC
+    properties:
+      ip: { get_input : host_ip }
+      hostname: vdra1
+      install_agent: { get_input : install_agent }
+      cloudify_agent:
+        user: { get_input: agent_user }
+        key: { get_input: agent_private_key_path }
+
+  Zookeeper_1:
+    type: cloudify.uangel.docker.Container
+    properties:
+      name: 'nfvdev-zookeeper1'
+      image: 
+        repository: 10.10.1.10:5000/nfvdev/zookeeper
+      connect_container_to_network: 
+        - nfvdevbr0=100.1.1.10
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: VNFC_Zookeeper_1
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: uangel_vdra.docker_plugin.tasks.create_container
+          inputs:
+            params:
+              stdin_open: true
+              tty: true
+              hostname: zookeeper1
+              volumes: 
+                - /root/shared
+                - /root/local
+              host_config:
+                privileged: true
+                extra_hosts:
+                  zookeeper1: '100.1.1.10'
+                  zookeeper2: '100.1.1.11'
+                binds:
+                  - '/home/vagrant/Docker/shared:/root/shared:rw'
+                  - '/home/vagrant/Docker/local/nfvdev-zookeeper1:/root/local:rw'
+                port_bindings:
+                  - 2181:2181
+                  - 2888:2888
+                  - 3888:3888
+        start:
+          implementation: uangel_vdra.docker_plugin.tasks.start
+          inputs:
+            processes_to_wait_for: zkServer.sh
+  EM_1:
+    type: cloudify.uangel.docker.Container
+    properties:
+      name: 'nfvdev-vem1'
+      image: 
+        repository: 10.10.1.10:5000/nfvdev/vdra
+      connect_container_to_network: 
+        - nfvdevbr0=100.1.1.200
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: VNFC_EM_1
+    interfaces:
+      uangel:
+        provision: scripts/provision.py
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: uangel_vdra.docker_plugin.tasks.create_container
+          inputs:
+            params:
+              stdin_open: true
+              tty: true
+              hostname: uem1
+              volumes: 
+                - /root/shared
+                - /root/local
+              host_config:
+                privileged: true
+                extra_hosts:
+                  zookeeper1: '100.1.1.10'
+                  zookeeper2: '100.1.1.11'
+                binds:
+                  - '/home/vagrant/Docker/shared:/root/shared:rw'
+                  - '/home/vagrant/Docker/local/nfvdev-vem1:/root/local:rw'
+                  - '/home/vagrant/Docker/local/hellod:/root/local/hellod'
+              environment:
+                  - 'ZOOKEEPER1=100.1.1.10'
+              command: /bin/bash -c "/bin/bash /root/local/rc.init &> /root/boot.log ;/root/local/hellod"
+        start:
+          implementation: uangel_vdra.docker_plugin.tasks.start
+          inputs:
+            processes_to_wait_for: hellod
+
+  vDRA_1:
+    type: cloudify.uangel.docker.Container
+    properties:
+      name: 'nfvdev-vdra1'
+      image: 
+        repository: 10.10.1.10:5000/nfvdev/vdra
+      connect_container_to_network: 
+        - nfvdevbr0=100.1.1.100
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: VNFC_vDRA_1
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: uangel_vdra.docker_plugin.tasks.create_container
+          inputs:
+            params:
+              stdin_open: true
+              tty: true
+              hostname: udra2
+              volumes: 
+                - /root/shared
+                - /root/local
+              host_config:
+                privileged: true
+                extra_hosts:
+                  zookeeper1: '100.1.1.10'
+                  zookeeper2: '100.1.1.11'
+                binds:
+                  - '/home/vagrant/Docker/shared:/root/shared:rw'
+                  - '/home/vagrant/Docker/local/nfvdev-vdra1:/root/local:rw'
+                  - '/home/vagrant/Docker/local/hellod:/root/local/hellod'
+              environment:
+                  - 'ZOOKEEPER1=100.1.1.10'
+              command: /bin/bash -c "/bin/bash /root/local/rc.init &> /root/boot.log ;/root/local/hellod"
+        start:
+          implementation: uangel_vdra.docker_plugin.tasks.start
+          inputs:
+            processes_to_wait_for: hellod
+
+  vDRA_2:
+    type: cloudify.uangel.docker.Container
+    properties:
+      name: 'nfvdev-vdra2'
+      image: 
+        repository: 10.10.1.10:5000/nfvdev/vdra
+      connect_container_to_network: 
+        - nfvdevbr0=100.1.1.101
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: VNFC_vDRA_2
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: uangel_vdra.docker_plugin.tasks.create_container
+          inputs:
+            params:
+              stdin_open: true
+              tty: true
+              hostname: udra2
+              volumes: 
+                - /root/shared
+                - /root/local
+              host_config:
+                privileged: true
+                extra_hosts:
+                  zookeeper1: '100.1.1.10'
+                  zookeeper2: '100.1.1.11'
+                binds:
+                  - '/home/vagrant/Docker/shared:/root/shared:rw'
+                  - '/home/vagrant/Docker/local/nfvdev-vdra2:/root/local:rw'
+                  - '/home/vagrant/Docker/local/hellod:/root/local/hellod'
+              environment:
+                  - 'ZOOKEEPER1=100.1.1.10'
+              command: /bin/bash -c "/bin/bash /root/local/rc.init &> /root/boot.log ;/root/local/hellod"
+        start:
+          implementation: uangel_vdra.docker_plugin.tasks.start
+          inputs:
+            processes_to_wait_for: hellod
+
+  LoadBalancer_1:
+    type: cloudify.uangel.docker.Container
+    properties:
+      name: 'nfvdev-vlb1'
+      image: 
+        repository: 10.10.1.10:5000/nfvdev/vdra
+      connect_container_to_network: 
+        - nfvdevbr0=100.1.1.254
+        - nfvdevbr1=100.1.2.254
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: VNFC_LoadBalancer_1
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: uangel_vdra.docker_plugin.tasks.create_container
+          inputs:
+            params:
+              stdin_open: true
+              tty: true
+              hostname: ulb1
+              volumes: 
+                - /root/shared
+                - /root/local
+              host_config:
+                privileged: true
+                extra_hosts:
+                  zookeeper1: '100.1.1.10'
+                  zookeeper2: '100.1.1.11'
+                binds:
+                  - '/home/vagrant/Docker/shared:/root/shared:rw'
+                  - '/home/vagrant/Docker/local/nfvdev-vlb1:/root/local:rw'
+                  - '/home/vagrant/Docker/local/hellod:/root/local/hellod'
+              environment:
+                  - 'ZOOKEEPER1=100.1.1.10'
+              command: /bin/bash -c "/bin/bash /root/local/rc.init &> /root/boot.log ;/root/local/hellod"
+        start:
+          implementation: uangel_vdra.docker_plugin.tasks.start
+          inputs:
+            processes_to_wait_for: hellod
+  Sim_1:
+    type: cloudify.uangel.docker.Container
+    properties:
+      name: 'nfvdev-sim1'
+      image: 
+        repository: 10.10.1.10:5000/nfvdev/udrasim
+      connect_container_to_network: 
+        - nfvdevbr0=100.1.1.20
+        - nfvdevbr1=100.1.2.20
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: VNFC_Sim_1
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: uangel_vdra.docker_plugin.tasks.create_container
+          inputs:
+            params:
+              stdin_open: true
+              tty: true
+              hostname: sim1
+              volumes: 
+                - /root/shared
+                - /root/local
+              host_config:
+                privileged: true
+                binds:
+                  - '/home/vagrant/Docker/shared:/root/shared:rw'
+                  - '/home/vagrant/Docker/local/nfvdev-sim1:/root/local:rw'
+                  - '/home/vagrant/Docker/local/hellod:/root/local/hellod'
+              command: /bin/bash -c "/bin/bash /root/local/rc.init &> /root/boot.log ;/root/local/hellod"
+        start:
+          implementation: uangel_vdra.docker_plugin.tasks.start
+          inputs:
+            processes_to_wait_for: hellod
+  Sim_2:
+    type: cloudify.uangel.docker.Container
+    properties:
+      name: 'nfvdev-sim2'
+      image: 
+        repository: 10.10.1.10:5000/nfvdev/udrasim
+      connect_container_to_network: 
+        - nfvdevbr0=100.1.1.21
+        - nfvdevbr1=100.1.2.21
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: VNFC_Sim_2
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: uangel_vdra.docker_plugin.tasks.create_container
+          inputs:
+            params:
+              stdin_open: true
+              tty: true
+              hostname: sim2
+              volumes: 
+                - /root/shared
+                - /root/local
+              host_config:
+                privileged: true
+                binds:
+                  - '/home/vagrant/Docker/shared:/root/shared:rw'
+                  - '/home/vagrant/Docker/local/nfvdev-sim2:/root/local:rw'
+                  - '/home/vagrant/Docker/local/hellod:/root/local/hellod'
+              command: /bin/bash -c "/bin/bash /root/local/rc.init &> /root/boot.log ;/root/local/hellod"
+        start:
+          implementation: uangel_vdra.docker_plugin.tasks.start
+          inputs:
+            processes_to_wait_for: hellod
+
+  New_LoadBalancer_4:
+    type: cloudify.uangel.nodes.LoadBalancer
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: LoadBalancer_1
+    properties:
+      id: 0
+      scheme: source
+  New_DRA_5:
+    type: cloudify.uangel.nodes.DRA
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vDRA_1
+    properties:
+      dictionary:
+        file:
+          - $UASYS_HOME/data/dict-3.0/dict_common.xml
+          - $UASYS_HOME/data/dict-3.0/dict_ietf_avps.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_avps.xml
+          - $UASYS_HOME/data/dict-3.0/dict_etsi_avps.xml
+          - $UASYS_HOME/data/dict-3.0/dict_telkomsel.xml
+          - $UASYS_HOME/data/dict-3.0/dict_ietf_base_RFC6733.xml
+          - $UASYS_HOME/data/dict-3.0/dict_ietf_base_acr_RFC6733.xml
+          - $UASYS_HOME/data/dict-3.0/dict_ietf_nas_RFC4005.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Ro_TS32299.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Sh_TS29329.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Sy_TS29219.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_CxDx_TS29229.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_S9_TS29215.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_S6a_S6d_TS29272.xml
+          - $UASYS_HOME/data/dict-3.0/dict_tksel_customized.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_S6b_TS29273.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Gx_TS29212.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Gxx_TS29212.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Sd_TS29212.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Rx_TS29214.xml
+      general:
+        thread_count: 10
+        max_server: 64
+        max_peer: 1024
+        option:
+          use_ipv6: false
+        parser:
+          version: 1
+  New_DRA_6:
+    type: cloudify.uangel.nodes.DRA
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vDRA_2
+    properties:
+      dictionary:
+        file:
+          - $UASYS_HOME/data/dict-3.0/dict_common.xml
+          - $UASYS_HOME/data/dict-3.0/dict_ietf_avps.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_avps.xml
+          - $UASYS_HOME/data/dict-3.0/dict_etsi_avps.xml
+          - $UASYS_HOME/data/dict-3.0/dict_telkomsel.xml
+          - $UASYS_HOME/data/dict-3.0/dict_ietf_base_RFC6733.xml
+          - $UASYS_HOME/data/dict-3.0/dict_ietf_base_acr_RFC6733.xml
+          - $UASYS_HOME/data/dict-3.0/dict_ietf_nas_RFC4005.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Ro_TS32299.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Sh_TS29329.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Sy_TS29219.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_CxDx_TS29229.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_S9_TS29215.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_S6a_S6d_TS29272.xml
+          - $UASYS_HOME/data/dict-3.0/dict_tksel_customized.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_S6b_TS29273.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Gx_TS29212.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Gxx_TS29212.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Sd_TS29212.xml
+          - $UASYS_HOME/data/dict-3.0/dict_3gpp_Rx_TS29214.xml
+      general:
+        thread_count: 10
+        max_server: 64
+        max_peer: 1024
+        option:
+          use_ipv6: true
+        parser:
+          version: 1
+  New_DRAInstance_7:
+    type: cloudify.uangel.nodes.DRAInstance
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: New_DRA_5
+      - type: cloudify.relationships.connected_to
+        target: New_PeerHost_9
+      - type: cloudify.relationships.connected_to
+        target: New_PeerHost_10
+      - type: cloudify.relationships.connected_to
+        target: New_PeerHost_11
+      - type: cloudify.relationships.connected_to
+        target: New_PeerHost_12
+    instances:
+      deploy: 1
+    properties:
+      server:
+        default: true
+        id: 0
+        hostname: dra.uangel.com
+        realm: uangel.com
+        option:
+          use_ipv6: false
+          use_duplicate_detect: true
+          check_cer_ip: false
+          check_tport_ip: false
+          check_dest_host: false
+          ignore_retrans: false
+          ignore_incoming_policy: true
+          use_new_hop_id_in_oreq: false
+          stop_peer_when_dpr_reboot: false
+          stop_peer_when_dpr_busy: false
+          immediate_reply_when_fail: true
+          reconnect_max: 0
+          send_timeout: 1000
+          recv_msg_check_size: 0
+        parser:
+          version: 1
+          no_check_header_flag: true
+          check_unknown_cmd: false
+          check_unknown_avp: false
+          check_mandatory_avp_length: false
+          check_empty_group: false
+          check_avprule: false
+          check_required_length: false
+        timer:
+          tw_timer: 10000
+          tc_timer: 5000
+          tq_timer: 4000
+          te_timer: 15000
+        capability:
+          product_name: UANGEL DIAMETER
+          vendor_id: 11857
+          supported_vendor_id:
+            - 0
+            - 10415
+            - 14389
+            - 15930
+          auth_application_id:
+            - 4294967295
+            - 4
+            - 16777251
+          acct_application_id:
+            - 4294967295
+            - 3
+          vendor_specific_application_id:
+            - vendor_id: 14389
+              auth_application_id: 1673
+            - vendor_id: 10415
+              auth_application_id: 1677738
+          inband_security_id: 1
+          host_ip_address:
+            - 200.1.1.1
+        transport:
+          - type: tcp
+            port: 3868
+            address: 200.1.1.1
+  New_DRAInstance_8:
+    type: cloudify.uangel.nodes.DRAInstance
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: New_DRA_6
+    properties:
+      server:
+        default: true
+        id: 0
+        hostname: dra.uangel.com
+        realm: uangel.com
+        option:
+          use_ipv6: false
+          use_duplicate_detect: true
+          check_cer_ip: false
+          check_tport_ip: false
+          check_dest_host: false
+          ignore_retrans: false
+          ignore_incoming_policy: true
+          use_new_hop_id_in_oreq: false
+          stop_peer_when_dpr_reboot: false
+          stop_peer_when_dpr_busy: false
+          immediate_reply_when_fail: true
+          reconnect_max: 0
+          send_timeout: 1000
+          recv_msg_check_size: 0
+        parser:
+          version: 1
+          no_check_header_flag: true
+          check_unknown_cmd: false
+          check_unknown_avp: false
+          check_mandatory_avp_length: false
+          check_empty_group: false
+          check_avprule: false
+          check_required_length: false
+        timer:
+          tw_timer: 10000
+          tc_timer: 5000
+          tq_timer: 4000
+          te_timer: 15000
+        capability:
+          product_name: UANGEL DIAMETER
+          vendor_id: 11857
+          supported_vendor_id:
+            - 0
+            - 10415
+            - 14389
+            - 15930
+          auth_application_id:
+            - 4294967295
+            - 4
+            - 16777251
+          acct_application_id:
+            - 4294967295
+            - 3
+          vendor_specific_application_id:
+            - vendor_id: 14389
+              auth_application_id: 1673
+            - vendor_id: 10415
+              auth_application_id: 1677738
+          inband_security_id: 1
+          host_ip_address:
+            - 200.1.1.1
+        transport:
+          - type: tcp
+            port: 3868
+            address: 200.1.1.1
+    instances:
+      deploy: 1
+  New_PeerHost_9:
+    type: cloudify.uangel.nodes.PeerHost
+    properties:
+      peer:
+        id: 1
+        hostname: mme31.uangel.com
+        transport:
+          - type: tcp
+            port: 5801
+            address: 100.1.2.20
+            way: server
+    instances:
+      deploy: 1
+    relationships: []
+  New_PeerHost_10:
+    type: cloudify.uangel.nodes.PeerHost
+    relationships: []
+    properties:
+      peer:
+        id: 1
+        hostname: hss31.uangel.com
+        transport:
+          - type: tcp
+            port: 6801
+            address: 100.1.2.20
+            way: client
+            bind:
+              address: 200.1.1.1
+    instances:
+      deploy: 2
+  New_PeerHost_11:
+    type: cloudify.uangel.nodes.PeerHost
+    relationships: []
+    instances:
+      deploy: 3
+    properties:
+      peer:
+        id: 1
+        hostname: mme32.uangel.com
+        transport:
+          - type: tcp
+            port: 5802
+            address: 100.1.2.21
+            way: server
+  New_PeerHost_12:
+    type: cloudify.uangel.nodes.PeerHost
+    instances:
+      deploy: 4
+    properties:
+      peer:
+        id: 1
+        hostname: hss32.uangel.com
+        transport:
+          - type: tcp
+            port: 6802
+            address: 100.1.2.21
+            way: client
+            bind:
+              address: 200.1.1.1
+    relationships: []
+  New_Network_13:
+    type: cloudify.uangel.nodes.Network
+    properties:
+      name: "test"
+    relationships: []
+  New_Cluster_14:
+    type: cloudify.uangel.nodes.Cluster
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: New_Network_13
+    properties:
+      virtual_port: New_Port_18
+  New_Port_15:
+    type: cloudify.uangel.nodes.Port
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: New_Cluster_14
+      - type: cloudify.relationships.contained_in
+        target: New_Network_13
+    properties:
+      address: 100.1.1.100/24
+  New_Port_16:
+    type: cloudify.uangel.nodes.Port
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: New_Cluster_14
+      - type: cloudify.relationships.contained_in
+        target: New_Network_13
+    properties:
+      address: 100.1.1.101/24
+  New_Port_17:
+    type: cloudify.uangel.nodes.Port
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: New_Cluster_14
+      - type: cloudify.relationships.contained_in
+        target: New_Network_13
+    properties:
+      address: 100.1.1.254/24
+  New_Port_18:
+    type: cloudify.uangel.nodes.Port
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: New_Cluster_14
+      - type: cloudify.relationships.contained_in
+        target: New_Network_13
+    properties:
+      address: 200.1.1.1/24
+
+
+workflows:
+  provision:
+    mapping: workflows/provision_em.py
+    parameters:
+      em_value:
+        description: the value to em the instance with
